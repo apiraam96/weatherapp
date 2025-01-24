@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Autocomplete, TextField } from "@mui/material";
+import { directGeoCodingType } from "../types/openWeatherAPItypes";
 
 const CitySearchField = () => {
   const [location, setLocation] = useState<directGeoCodingType | null>();
@@ -7,16 +8,8 @@ const CitySearchField = () => {
   const [metadata, setMetadata] = useState<directGeoCodingType[]>([]);
   const [error, setError] = useState<boolean>(false);
 
-  type directGeoCodingType = {
-    name: string;
-    local_names?: { [k: string]: string };
-    lat: number;
-    lon: number;
-    country: string;
-    state?: string;
-  };
-
   const fetchLocations = async (value: string) => {
+    console.log("debounce value:", value);
     if (!value) {
       setLocation(null);
       setMetadata([]);
@@ -33,7 +26,6 @@ const CitySearchField = () => {
 
       const set = new Set();
       const uniqueMetadata = data.filter((ele) => {
-        console.log("set:", set);
         if (set.has(`${ele.name}, ${ele.state}, ${ele.country}`)) return false;
         set.add(`${ele.name}, ${ele.state}, ${ele.country}`);
         return true;
@@ -46,26 +38,26 @@ const CitySearchField = () => {
     }
   };
 
-  // most likely have to debounce this
+  const debounce = (cb, delay = 1000) => {
+    let timeout: ReturnType<typeof setTimeout>;
+    return (...arg) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        cb(...arg);
+      }, delay);
+    };
+  };
+
+  const debouncedLocations = useMemo(() => debounce(fetchLocations), []);
+
   const onUpdate = (newValue: string) => {
     setValue(newValue);
-    fetchLocations(newValue);
+    debouncedLocations(newValue);
   };
 
   const onSubmit = () => {
     console.log(location);
   };
-
-  useEffect(() => {
-    console.log("value", value);
-    console.log("metadata:", metadata);
-  }, [value, metadata]);
-
-  //   const handleBlur = () => {
-  //     if (!options.includes(value)) {
-  //       setValue("");
-  //     }
-  //   };
 
   return (
     <div className="flex">
@@ -87,7 +79,6 @@ const CitySearchField = () => {
         renderInput={(params) => (
           <TextField
             {...params}
-            // onBlur={handleBlur}
             label="Add a city"
             fullWidth
             sx={{ borderRadius: 60 }}
